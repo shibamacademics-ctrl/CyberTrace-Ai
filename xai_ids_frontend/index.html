@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team 404 : XAI-IDS</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <header>
+        <div class="logo-area">
+            <h1><span>Explainable Cyber-Intrusion Console</span></h1>
+        </div>
+        <div class="header-actions">
+            <button id="theme-toggle" class="ui-btn" aria-label="Toggle Theme Layout">
+                <span class="mode-icon-dark">🌙 Dark Mode</span>
+                <span class="mode-icon-light" style="display:none;">☀️ Light Mode</span>
+            </button>
+            <div class="system-status">
+                <div class="status-pulse"></div>
+                <span>System Hook: Connected to FastAPI Backend</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        
+        <div class="upper-grid">
+            
+            <section class="panel">
+                <div class="panel-header">
+                    <div class="metrics-summary-bar">
+                        <div class="mini-metric-card">
+                            <label>Monitored Sessions</label>
+                            <span id="metric-total">0</span>
+                        </div>
+                        <div class="mini-metric-card">
+                            <label>Threats Suppressed</label>
+                            <span id="metric-threats" style="color: var(--color-malicious);">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-section">
+                        <div class="filter-group">
+                            <label for="conf-slider">Minimum Confidence <span id="conf-val">50%</span></label>
+                            <input type="range" id="conf-slider" min="50" max="100" value="50">
+                        </div>
+                        <div class="filter-group">
+                            <label style="margin-bottom: 0.75rem;">Attack Classification Filters</label>
+                            <div class="token-container" id="token-filters"></div>
+                        </div>
+                    </div>
+                    <h2>Live Stream Activity Feed</h2>
+                </div>
+                <div class="feed-container" id="alert-feed">
+                    </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-header">
+                    <h2>AI Layer 1 & 2 Vector Verdict</h2>
+                </div>
+                <div class="panel-body unified-center">
+                    <div class="stats-marquee">
+                        <div class="stat-node" id="node-class">
+                            <label>Predicted Attack Vector</label>
+                            <div class="val">—</div>
+                        </div>
+                        <div class="stat-node" id="node-conf">
+                            <label>Pipeline Confidence</label>
+                            <div class="val">—</div>
+                        </div>
+                    </div>
+                    <div class="stat-node large-node" id="node-top-feature">
+                        <label>Primary Driving Telemetry Feature</label>
+                        <div class="val">—</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-header">
+                    <h2>AI Layer 3: Natural Language Certification</h2>
+                </div>
+                <div class="panel-body unified-center">
+                    <div class="banner-alert" id="threat-banner">NO LOG SELECTED</div>
+                    
+                    <div class="llm-window-container">
+                        <div class="llm-window" id="llm-narrative-text">
+                            Select an active telemetry stream packet from the live activity feed to invoke Layer 3 generation verification certificates.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <div class="lower-deck">
+            
+            <div class="deck-panel">
+                <div class="deck-header">AI Layer 2: Deep SHAP Explainability Engine Matrix</div>
+                
+                <div class="chart-container">
+                    <div class="chart-title">Local Feature Relative Importances</div>
+                    <div class="shap-bar-group" id="shap-bars-container"></div>
+                </div>
+
+                <div class="force-plot-wrapper">
+                    <div class="chart-title">SHAP Decision Force Continuum Scale</div>
+                    <div class="force-plot-axis" id="force-plot-axis"></div>
+                    <div class="force-labels">
+                        <span>Base Expectation (0.0)</span>
+                        <span>Critical Risk Threshold (0.5)</span>
+                        <span>Threat Activation (1.0)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="deck-panel">
+                <div class="deck-header">Incident Action Runbook & Telemetry Mapping</div>
+                
+                <div class="certificate-box">
+                    <h3>Telemetry Observation Mapping Matrix</h3>
+                    <ul class="matrix-list" id="observation-matrix"></ul>
+                </div>
+
+                <div class="certificate-box">
+                    <h3>Incident Response Mitigation Steps</h3>
+                    <div class="playbook-steps" id="playbook-container"></div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
