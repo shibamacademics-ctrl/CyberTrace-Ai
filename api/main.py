@@ -5,7 +5,7 @@ FastAPI backend for CyberTrace AI.
 
 import os
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -15,7 +15,6 @@ from pydantic import BaseModel
 
 from explainer import IDSExplainer
 from certificate_generator import generate_certificate
-from certificate_card import build_certificate_card
 import database
 
 app = FastAPI(title="CyberTrace AI API", version="1.0.0")
@@ -60,7 +59,6 @@ class PredictResponse(BaseModel):
     context: str
     reasons: List[ReasonEntry]
     top_shap_values: List[ShapEntry]
-    certificate: Dict[str, Any]
 
 
 @app.get("/health")
@@ -94,13 +92,6 @@ def predict(request: PredictRequest):
             confidence=result["confidence"],
             top_shap_values=top_shap_values,
         )
-        certificate_card = build_certificate_card(
-            attack_type=result["attack_type"],
-            confidence=result["confidence"],
-            summary=certificate["summary"],
-            context=certificate["context"],
-            reasons=certificate["reasons"],
-        )
 
         response = {
             "attack_type": result["attack_type"],
@@ -110,7 +101,6 @@ def predict(request: PredictRequest):
             "context": certificate["context"],
             "reasons": certificate["reasons"],
             "top_shap_values": top_shap_values,
-            "certificate": certificate_card,
         }
 
         database.save_alert(response)
