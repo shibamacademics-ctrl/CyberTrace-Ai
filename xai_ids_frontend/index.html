@@ -8,23 +8,31 @@
 </head>
 <body>
 
-    <header>
-        <div class="header-actions">
-            <!-- NEW: CSV Upload Button -->
-            <input type="file" id="csv-upload" accept=".csv" style="display: none;">
-            <label for="csv-upload" class="ui-btn" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
-                <span>📁 Upload CSV File</span>
-            </label>
+    <header style="display: flex; justify-content: space-between; align-items: center;">
 
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <div id="soc-clock" style="font-family: monospace; font-size: 1.1rem; font-weight: bold; letter-spacing: 1px; color: var(--color-text);">
+                SYS.TIME: 00:00:00 IST
+            </div>
+            
+            <!-- THREAT POSTURE BADGE -->
+            <div class="threat-posture badge-nominal" id="threat-badge">
+                POSTURE: NOMINAL
+            </div>
+        </div>
+
+        <!-- TOP RIGHT: Status and Theme -->
+        <div class="header-actions" style="display: flex; align-items: center; gap: 1.5rem;">
+            <div class="system-status" style="display: flex; align-items: center; gap: 0.5rem;">
+                <div class="status-pulse"></div>
+                <span>System Hook: Ready</span>
+            </div>
             <button id="theme-toggle" class="ui-btn" aria-label="Toggle Theme Layout">
                 <span class="mode-icon-dark">☀️ Light Mode</span>
                 <span class="mode-icon-light" style="display:none;">🌙 Dark Mode</span>
             </button>
-            <div class="system-status">
-                <div class="status-pulse"></div>
-                <span>System Hook: Connected to FastAPI Backend</span>
-            </div>
         </div>
+        
     </header>
 
     <div class="dashboard-container">
@@ -60,27 +68,42 @@
                     </div>
             </section>
 
-            <section class="panel">
-                <div class="panel-header">
-                    <h2>AI Layer 1 & 2 Vector Verdict</h2>
+            <!-- START OF MIDDLE COLUMN WRAPPER -->
+            <div style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%;">
+                
+                <!-- NEW PLACEMENT: BIG UPLOAD BUTTON BEFORE THE BOX -->
+                <div class="upload-container">
+                    <input type="file" id="csv-upload" accept=".csv" style="display: none;">
+                    <label for="csv-upload" class="ui-btn" style="cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.75rem; background-color: var(--color-neutral-muted); border-color: var(--color-neutral); padding: 1.25rem; font-size: 1.1rem; border-radius: 8px;">
+                        <span>📁 Upload CSV File</span>
+                    </label>
                 </div>
-                <div class="panel-body unified-center">
-                    <div class="stats-marquee">
-                        <div class="stat-node" id="node-class">
-                            <label>Predicted Attack Vector</label>
-                            <div class="val">—</div>
+
+                <!-- AI LAYER 1 & 2 VECTOR VERDICT PANEL -->
+                <section class="panel" style="flex: 1;">
+                    <div class="panel-header">
+                        <h2>AI Layer 1 & 2 Vector Verdict</h2>
+                    </div>
+                    <div class="panel-body unified-center">
+                        <div class="stats-marquee">
+                            <div class="stat-node" id="node-class">
+                                <label>Predicted Attack Vector</label>
+                                <div class="val">—</div>
+                            </div>
+                            <div class="stat-node" id="node-conf">
+                                <label>Pipeline Confidence</label>
+                                <div class="val">—</div>
+                            </div>
                         </div>
-                        <div class="stat-node" id="node-conf">
-                            <label>Pipeline Confidence</label>
+                        <div class="stat-node large-node" id="node-top-feature">
+                            <label>Primary Driving Telemetry Feature</label>
                             <div class="val">—</div>
                         </div>
                     </div>
-                    <div class="stat-node large-node" id="node-top-feature">
-                        <label>Primary Driving Telemetry Feature</label>
-                        <div class="val">—</div>
-                    </div>
-                </div>
-            </section>
+                </section>
+                
+            </div>
+            <!-- END OF MIDDLE COLUMN WRAPPER -->
 
             <section class="panel">
                 <div class="panel-header">
