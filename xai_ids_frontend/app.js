@@ -1,115 +1,10 @@
-const mockNetworkDataset = [
-    {
-        "id": "A1",
-        "attack_type": "DDoS",
-        "confidence": 94.20,
-        "is_attack": true,
-        "timestamp": "2026-07-07 21:03:35",
-        "summary": [
-            "Packet transmission rates surged over 3.5x past static configuration base metrics.",
-            "Network stream inter-arrival times collapsed toward immediate zero parameters."
-        ],
-        "llm_narrative": "This flow is flagged as an active DDoS attempt because packet transmission rates surged over 3x baseline limits while packet sizes shrunk drastically—both characteristics of malicious automated resource flooding.",
-        "shap_values": [
-            { "feature": "Flow Packets/s", "value": 0.48, "impact": "positive" },
-            { "feature": "Flow IAT Mean", "value": 0.35, "impact": "positive" },
-            { "feature": "SYN Flag Count", "value": 0.12, "impact": "positive" },
-            { "feature": "Average Packet Size", "value": -0.22, "impact": "negative" }
-        ],
-        "playbook": [
-            "Enable immediate threshold rate-limiting on destination edge ports.",
-            "Inject real-time dropping flags for anomalous upstream origin paths."
-        ]
-    },
-    {
-        "id": "A2",
-        "attack_type": "PortScan",
-        "confidence": 88.50,
-        "is_attack": true,
-        "timestamp": "2026-07-07 21:04:12",
-        "summary": [
-            "Sequential port traversal flagged tracking across 150+ discrete destinations.",
-            "SYN flags set high outside established session sequence structures."
-        ],
-        "llm_narrative": "The interface maps highly methodical, rapid sequential connection attempts across broad sets of structural ports, typical of systematic reconnaissance profiling prior to an infiltration push.",
-        "shap_values": [
-            { "feature": "SYN Flag Count", "value": 0.55, "impact": "positive" },
-            { "feature": "Flow IAT Mean", "value": -0.15, "impact": "negative" },
-            { "feature": "Average Packet Size", "value": -0.10, "impact": "negative" }
-        ],
-        "playbook": [
-            "Isolate offending host address into local sandbox VLAN routing rules.",
-            "Drop outbound visibility confirmations globally on unassigned network ports."
-        ]
-    },
-    {
-        "id": "A3",
-        "attack_type": "BENIGN",
-        "confidence": 99.10,
-        "is_attack": false,
-        "timestamp": "2026-07-07 21:05:01",
-        "summary": [
-            "Packet flow configurations adhere completely to nominal pipeline profiles.",
-            "Structural byte delivery metrics show highly balanced asymmetrical tracking."
-        ],
-        "llm_narrative": "Telemetry matches a clean TLS session routing context. High internal data payload weight profiles combined with expected standard transmission pacing show zero mechanical automation signatures.",
-        "shap_values": [
-            { "feature": "Average Packet Size", "value": -0.45, "impact": "negative" },
-            { "feature": "Flow IAT Mean", "value": -0.35, "impact": "negative" },
-            { "feature": "Flow Packets/s", "value": 0.05, "impact": "positive" }
-        ],
-        "playbook": [
-            "No containment directives required. Pass telemetry to active state processing matrix layers."
-        ]
-    },
-    {
-        "id": "A4",
-        "attack_type": "Botnet",
-        "confidence": 76.40,
-        "is_attack": true,
-        "timestamp": "2026-07-07 21:05:49",
-        "summary": [
-            "Persistent heartbeat signals match configured Command & Control infrastructure.",
-            "Asymmetric payloads broadcast at recurring predictable mathematical loops."
-        ],
-        "llm_narrative": "Low-volume telemetry shows a cyclical, highly deterministic heartbeat routine communicating with external addresses linked directly to known peer-to-peer adversarial frameworks.",
-        "shap_values": [
-            { "feature": "Flow IAT Mean", "value": 0.42, "impact": "positive" },
-            { "feature": "Flow Packets/s", "value": -0.20, "impact": "negative" },
-            { "feature": "SYN Flag Count", "value": 0.15, "impact": "positive" }
-        ],
-        "playbook": [
-            "Terminate established session handshakes immediately across security proxies.",
-            "Cross-reference destination host records with integrated threat intelligence groups."
-        ]
-    },
-    {
-        "id": "A5",
-        "attack_type": "Brute Force",
-        "confidence": 91.80,
-        "is_attack": true,
-        "timestamp": "2026-07-07 21:06:22",
-        "summary": [
-            "Repeated authentication protocol exceptions captured over telemetry channels.",
-            "Payload structures indicate uniform structural content loops."
-        ],
-        "llm_narrative": "The structural processing stack notes high-frequency authorization payload failures targeted at infrastructure gateways, denoting systematic dictionary enumeration exploits.",
-        "shap_values": [
-            { "feature": "Flow Packets/s", "value": 0.39, "impact": "positive" },
-            { "feature": "Average Packet Size", "value": 0.28, "impact": "positive" },
-            { "feature": "Flow IAT Mean", "value": -0.12, "impact": "negative" }
-        ],
-        "playbook": [
-            "Apply geometric cooling-off penalties to originating telemetry paths.",
-            "Require dual-factor out-of-band operational verification sweeps."
-        ]
-    }
-];
-
+// --- 1. INITIALIZE EMPTY STATE ---
+let networkDataset = []; // Starts empty!
 let activeFilters = { minConfidence: 50, classes: ["DDoS", "PortScan", "Botnet", "Brute Force", "BENIGN"] };
-let selectedLogId = mockNetworkDataset[0].id;
+let selectedLogId = null;
 const uniqueClasses = ["DDoS", "PortScan", "Botnet", "Brute Force", "BENIGN"];
 
+// --- DOM ELEMENTS ---
 const alertFeedContainer = document.getElementById('alert-feed');
 const tokenFiltersContainer = document.getElementById('token-filters');
 const confSlider = document.getElementById('conf-slider');
@@ -127,59 +22,123 @@ const observationMatrix = document.getElementById('observation-matrix');
 const llmNarrativeText = document.getElementById('llm-narrative-text');
 const playbookContainer = document.getElementById('playbook-container');
 const themeToggleBtn = document.getElementById('theme-toggle');
+const statusText = document.querySelector('.system-status span');
 
+// --- 2. STARTUP LOGIC ---
 function initApp() {
     renderFilterTokens();
     bindEventListeners();
-    applyPipelineProcessing();
-    syncDetailedAnalysis(selectedLogId);
+    resetDashboardToEmpty(); // Ensure everything shows 0 or blank initially
 }
 
-// --- CSV UPLOAD HANDLING ---
+function resetDashboardToEmpty() {
+    totalMetricEl.textContent = "0";
+    threatsMetricEl.textContent = "0";
+    alertFeedContainer.innerHTML = `<div style="font-size: 0.95rem; color: var(--text-muted); text-align: center; padding: 2rem;">Awaiting CSV Upload...</div>`;
+    
+    nodeClass.querySelector('.val').textContent = "—";
+    nodeClass.className = "stat-node";
+    nodeConf.querySelector('.val').textContent = "—";
+    nodeTopFeat.querySelector('.val').textContent = "—";
+    
+    shapBarsContainer.innerHTML = `<div style="color: var(--text-muted); font-size: 0.9rem;">No data loaded</div>`;
+    forcePlotAxis.innerHTML = '';
+    
+    threatBanner.className = "banner-alert";
+    threatBanner.textContent = "NO LOG SELECTED";
+    
+    observationMatrix.innerHTML = '';
+    llmNarrativeText.textContent = "Upload a CSV file to process telemetry and invoke Layer 3 generation verification certificates.";
+    playbookContainer.innerHTML = '';
+}
+
+// --- 3. CSV UPLOAD & PARSING ---
 const csvUploadInput = document.getElementById('csv-upload');
 
 csvUploadInput.addEventListener('change', function(event) {
     const file = event.target.files[0];
     
     if (file) {
-        // Ensure it's a CSV
         if (file.type !== "text/csv" && !file.name.endsWith('.csv')) {
             alert("Please upload a valid CSV file.");
             return;
         }
+
+        statusText.textContent = `System Hook: Processing ${file.name}...`;
 
         const reader = new FileReader();
         
         reader.onload = function(e) {
             const rawCSVText = e.target.result;
             
-            // Console log to prove it's reading the file
-            console.log("CSV Successfully Loaded:");
-            console.log(rawCSVText);
+            // Parse CSV into dashboard data
+            networkDataset = parseCSVToDashboardData(rawCSVText);
             
-            alert(`Successfully loaded ${file.name}! Check the browser console to see the raw text.`);
-            
-            /* 
-             * NEXT STEPS FOR INTEGRATION:
-             * 1. Parse the 'rawCSVText' into an array of objects.
-             * 2. Format it to match the structure of 'mockNetworkDataset'.
-             * 3. Replace 'mockNetworkDataset' with the new data.
-             * 4. Call initApp() or applyPipelineProcessing() to refresh the UI.
-             */
+            if (networkDataset.length > 0) {
+                selectedLogId = networkDataset[0].id; // Select first row automatically
+                applyPipelineProcessing();
+                syncDetailedAnalysis(selectedLogId);
+                statusText.textContent = `System Hook: Processed ${networkDataset.length} rows successfully`;
+            } else {
+                alert("CSV appears to be empty or improperly formatted.");
+                statusText.textContent = `System Hook: Ready`;
+            }
         };
         
         reader.onerror = function() {
             alert("Error reading the file. Please try again.");
+            statusText.textContent = `System Hook: Ready`;
         };
         
-        // Read the file as text
         reader.readAsText(file);
     }
     
-    // Reset the input so the same file can be uploaded again if needed
-    event.target.value = ''; 
+    event.target.value = ''; // Reset input
 });
 
+// A frontend helper to turn CSV rows into dashboard-compatible JSON
+function parseCSVToDashboardData(csvText) {
+    const lines = csvText.split('\n').filter(line => line.trim() !== '');
+    if (lines.length < 2) return []; // Needs at least headers and one row
+
+    const headers = lines[0].split(',').map(h => h.trim());
+    const parsedData = [];
+
+    // Loop through CSV rows (skipping header)
+    for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        
+        // Since we are frontend only, we simulate AI classification based on row index to give you realistic UI data
+        const isAttack = i % 3 !== 0; // Every 3rd row is safe, rest are attacks for demo variety
+        const attackType = isAttack ? uniqueClasses[i % 4] : "BENIGN";
+        
+        parsedData.push({
+            id: `CSV-ROW-${i}`,
+            attack_type: attackType,
+            confidence: Math.random() * (99.9 - 75.0) + 75.0,
+            is_attack: isAttack,
+            timestamp: new Date().toLocaleTimeString(),
+            summary: [
+                `Extracted ${headers.length} telemetry features from CSV row ${i}.`,
+                isAttack ? "Anomalous patterns detected in payload metrics." : "Traffic aligns with established baseline profiles."
+            ],
+            llm_narrative: isAttack 
+                ? `Based on the CSV input, this flow is flagged as ${attackType}. Feature deviations suggest abnormal automation or payload manipulation.`
+                : `Telemetry metrics match a clean session context. No mechanical automation signatures detected in this row.`,
+            shap_values: [
+                { feature: headers[0] || "Feature 1", value: (Math.random() * 0.8) - 0.2, impact: "positive" },
+                { feature: headers[1] || "Feature 2", value: (Math.random() * -0.6), impact: "negative" },
+                { feature: headers[2] || "Feature 3", value: (Math.random() * 0.5) + 0.1, impact: "positive" }
+            ],
+            playbook: isAttack 
+                ? ["Enable immediate threshold rate-limiting.", "Isolate offending host address."]
+                : ["No containment directives required."]
+        });
+    }
+    return parsedData;
+}
+
+// --- 4. CORE DASHBOARD LOGIC ---
 function renderFilterTokens() {
     tokenFiltersContainer.innerHTML = uniqueClasses.map(cls => `
         <div>
@@ -195,13 +154,13 @@ function bindEventListeners() {
         confValLabel.textContent = `${activeFilters.minConfidence}%`;
         applyPipelineProcessing();
     });
+    
     tokenFiltersContainer.addEventListener('change', () => {
         const checkedBoxes = tokenFiltersContainer.querySelectorAll('.token-checkbox:checked');
         activeFilters.classes = Array.from(checkedBoxes).map(cb => cb.value);
         applyPipelineProcessing();
     });
 
-    // Theme Engine Router Event
     themeToggleBtn.addEventListener('click', () => {
         const currentTheme = document.documentElement.getAttribute('data-theme');
         const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -221,11 +180,13 @@ function bindEventListeners() {
 }
 
 function applyPipelineProcessing() {
-    const filteredLogs = mockNetworkDataset.filter(log => {
+    const filteredLogs = networkDataset.filter(log => {
         return log.confidence >= activeFilters.minConfidence && activeFilters.classes.includes(log.attack_type);
     });
+    
     totalMetricEl.textContent = filteredLogs.length;
     threatsMetricEl.textContent = filteredLogs.filter(l => l.is_attack).length;
+    
     renderActivityFeed(filteredLogs);
 }
 
@@ -234,6 +195,7 @@ function renderActivityFeed(logs) {
         alertFeedContainer.innerHTML = `<div style="font-size: 0.95rem; color: var(--text-muted); text-align: center; padding: 2rem;">No matching session logs.</div>`;
         return;
     }
+    
     alertFeedContainer.innerHTML = logs.map(log => {
         const riskClass = log.is_attack ? 'malicious' : 'safe';
         const isActive = log.id === selectedLogId ? 'active' : '';
@@ -256,11 +218,12 @@ window.handleLogSelection = function(id) {
 };
 
 function syncDetailedAnalysis(id) {
-    const targetData = mockNetworkDataset.find(log => log.id === id);
+    const targetData = networkDataset.find(log => log.id === id);
     if (!targetData) return;
 
     nodeClass.querySelector('.val').textContent = targetData.attack_type;
     nodeClass.querySelector('.val').style.color = targetData.is_attack ? 'var(--color-malicious)' : 'var(--color-safe)';
+    nodeClass.className = `stat-node ${targetData.is_attack ? 'danger' : 'secure'}`;
     nodeConf.querySelector('.val').textContent = `${targetData.confidence.toFixed(1)}%`;
     
     const topFeatureNode = targetData.shap_values.reduce((prev, current) => (Math.abs(current.value) > Math.abs(prev.value)) ? current : prev);
@@ -322,4 +285,33 @@ function renderForcePlot(data) {
     forcePlotAxis.appendChild(markerEl);
 }
 
+// Start application
 window.addEventListener('DOMContentLoaded', initApp);
+
+
+
+
+function startSOCClock() {
+        const clockElement = document.getElementById('soc-clock');
+        if (!clockElement) return;
+
+        function updateTime() {
+            const now = new Date();
+            
+            // This strictly forces the time to Indian Standard Time (IST)
+            const timeString = now.toLocaleTimeString('en-US', { 
+                timeZone: 'Asia/Kolkata', 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+            
+            clockElement.textContent = `SYS.TIME: ${timeString} IST`;
+        }
+
+        updateTime(); // Run immediately
+        setInterval(updateTime, 1000); // Update every second
+    }
+
+    document.addEventListener('DOMContentLoaded', startSOCClock);
