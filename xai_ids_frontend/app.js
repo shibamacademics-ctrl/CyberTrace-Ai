@@ -1,8 +1,15 @@
+// ============================================================
+// BACKEND CONNECTION
+// Change this if your FastAPI server runs somewhere other than
+// localhost:8000 (e.g. a teammate's machine's IP address).
+// ============================================================
+const BACKEND_URL = "http://localhost:8000";
+
 // --- 1. INITIALIZE EMPTY STATE ---
 let networkDataset = []; // Starts empty!
-let activeFilters = { minConfidence: 50, classes: ["DDoS", "PortScan", "Botnet", "Brute Force", "BENIGN"] };
+let activeFilters = { minConfidence: 50, classes: ["DDoS", "PortScan", "Brute Force", "Web Attack", "Bot", "BENIGN"] };
 let selectedLogId = null;
-const uniqueClasses = ["DDoS", "PortScan", "Botnet", "Brute Force", "BENIGN"];
+const uniqueClasses = ["DDoS", "PortScan", "Brute Force", "Web Attack", "Bot", "BENIGN"];
 
 // --- DOM ELEMENTS ---
 const alertFeedContainer = document.getElementById('alert-feed');
@@ -35,29 +42,29 @@ function resetDashboardToEmpty() {
     totalMetricEl.textContent = "0";
     threatsMetricEl.textContent = "0";
     alertFeedContainer.innerHTML = `<div style="font-size: 0.95rem; color: var(--text-muted); text-align: center; padding: 2rem;">Awaiting CSV Upload...</div>`;
-    
+
     nodeClass.querySelector('.val').textContent = "—";
     nodeClass.className = "stat-node";
     nodeConf.querySelector('.val').textContent = "—";
     nodeTopFeat.querySelector('.val').textContent = "—";
-    
+
     shapBarsContainer.innerHTML = `<div style="color: var(--text-muted); font-size: 0.9rem;">No data loaded</div>`;
     forcePlotAxis.innerHTML = '';
-    
+
     threatBanner.className = "banner-alert";
     threatBanner.textContent = "NO LOG SELECTED";
-    
+
     observationMatrix.innerHTML = '';
     llmNarrativeText.textContent = "Upload a CSV file to process telemetry and invoke Layer 3 generation verification certificates.";
     playbookContainer.innerHTML = '';
 }
 
-// --- 3. CSV UPLOAD & PARSING ---
+// --- 3. CSV UPLOAD & REAL BACKEND PREDICTION ---
 const csvUploadInput = document.getElementById('csv-upload');
 
-csvUploadInput.addEventListener('change', function(event) {
+csvUploadInput.addEventListener('change', function (event) {
     const file = event.target.files[0];
-    
+
     if (file) {
         if (file.type !== "text/csv" && !file.name.endsWith('.csv')) {
             alert("Please upload a valid CSV file.");
@@ -67,73 +74,110 @@ csvUploadInput.addEventListener('change', function(event) {
         statusText.textContent = `System Hook: Processing ${file.name}...`;
 
         const reader = new FileReader();
-        
-        reader.onload = function(e) {
+
+        reader.onload = async function (e) {
             const rawCSVText = e.target.result;
-            
-            // Parse CSV into dashboard data
-            networkDataset = parseCSVToDashboardData(rawCSVText);
-            
+
+            let results;
+            try {
+                results = await parseCSVToDashboardData(rawCSVText);
+            } catch (err) {
+                console.error("Backend connection failed:", err);
+                alert(`Could not reach the backend at ${BACKEND_URL}. Make sure the FastAPI server is running (uvicorn api.main:app --reload --port 8000).`);
+                statusText.textContent = `System Hook: Ready`;
+                return;
+            }
+
+            networkDataset = results;
+
             if (networkDataset.length > 0) {
                 selectedLogId = networkDataset[0].id; // Select first row automatically
                 applyPipelineProcessing();
                 syncDetailedAnalysis(selectedLogId);
                 statusText.textContent = `System Hook: Processed ${networkDataset.length} rows successfully`;
             } else {
-                alert("CSV appears to be empty or improperly formatted.");
+                alert("CSV appears to be empty, improperly formatted, or every row was rejected by the backend.");
                 statusText.textContent = `System Hook: Ready`;
             }
         };
-        
-        reader.onerror = function() {
+
+        reader.onerror = function () {
             alert("Error reading the file. Please try again.");
             statusText.textContent = `System Hook: Ready`;
         };
-        
+
         reader.readAsText(file);
     }
-    
+
     event.target.value = ''; // Reset input
 });
 
-// A frontend helper to turn CSV rows into dashboard-compatible JSON
-function parseCSVToDashboardData(csvText) {
+// Turns one CSV row into a {featureName: number} object for /predict.
+function rowToFeatures(headers, values) {
+    const features = {};
+    headers.forEach((header, idx) => {
+        const num = parseFloat(values[idx]);
+        features[header] = isNaN(num) ? 0.0 : num;
+    });
+    return features;
+}
+
+// Calls your real FastAPI backend for one row of features.
+async function predictRow(features) {
+    const response = await fetch(`${BACKEND_URL}/predict`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ features })
+    });
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errText}`);
+    }
+    return response.json();
+}
+
+// Converts a /predict response into the shape this dashboard renders.
+function transformPrediction(prediction, rowId) {
+    return {
+        id: rowId,
+        attack_type: prediction.attack_type,
+        confidence: prediction.confidence,
+        is_attack: prediction.is_attack,
+        timestamp: new Date().toLocaleTimeString(),
+        summary: [prediction.summary],
+        llm_narrative: prediction.context ? `${prediction.summary} ${prediction.context}` : prediction.summary,
+        shap_values: (prediction.top_shap_values || []).map(s => ({
+            feature: s.feature,
+            value: s.shap_value,
+            impact: s.impact
+        })),
+        playbook: prediction.is_attack
+            ? [
+                "Escalate this flow to your security analyst for review.",
+                "Cross-reference the source host with recent activity logs."
+              ]
+            : ["No containment directives required. Traffic is within normal parameters."]
+    };
+}
+
+// Sends each CSV row to the real backend (one at a time) and builds
+// dashboard-ready data from the actual model + SHAP predictions.
+async function parseCSVToDashboardData(csvText) {
     const lines = csvText.split('\n').filter(line => line.trim() !== '');
     if (lines.length < 2) return []; // Needs at least headers and one row
 
     const headers = lines[0].split(',').map(h => h.trim());
     const parsedData = [];
 
-    // Loop through CSV rows (skipping header)
     for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(',').map(v => v.trim());
-        
-        // Since we are frontend only, we simulate AI classification based on row index to give you realistic UI data
-        const isAttack = i % 3 !== 0; // Every 3rd row is safe, rest are attacks for demo variety
-        const attackType = isAttack ? uniqueClasses[i % 4] : "BENIGN";
-        
-        parsedData.push({
-            id: `CSV-ROW-${i}`,
-            attack_type: attackType,
-            confidence: Math.random() * (99.9 - 75.0) + 75.0,
-            is_attack: isAttack,
-            timestamp: new Date().toLocaleTimeString(),
-            summary: [
-                `Extracted ${headers.length} telemetry features from CSV row ${i}.`,
-                isAttack ? "Anomalous patterns detected in payload metrics." : "Traffic aligns with established baseline profiles."
-            ],
-            llm_narrative: isAttack 
-                ? `Based on the CSV input, this flow is flagged as ${attackType}. Feature deviations suggest abnormal automation or payload manipulation.`
-                : `Telemetry metrics match a clean session context. No mechanical automation signatures detected in this row.`,
-            shap_values: [
-                { feature: headers[0] || "Feature 1", value: (Math.random() * 0.8) - 0.2, impact: "positive" },
-                { feature: headers[1] || "Feature 2", value: (Math.random() * -0.6), impact: "negative" },
-                { feature: headers[2] || "Feature 3", value: (Math.random() * 0.5) + 0.1, impact: "positive" }
-            ],
-            playbook: isAttack 
-                ? ["Enable immediate threshold rate-limiting.", "Isolate offending host address."]
-                : ["No containment directives required."]
-        });
+        if (values.length !== headers.length) continue; // skip malformed rows
+
+        statusText.textContent = `System Hook: Predicting row ${i} of ${lines.length - 1}...`;
+
+        const features = rowToFeatures(headers, values);
+        const prediction = await predictRow(features); // throws on network/backend failure
+        parsedData.push(transformPrediction(prediction, `CSV-ROW-${i}`));
     }
     return parsedData;
 }
@@ -154,7 +198,7 @@ function bindEventListeners() {
         confValLabel.textContent = `${activeFilters.minConfidence}%`;
         applyPipelineProcessing();
     });
-    
+
     tokenFiltersContainer.addEventListener('change', () => {
         const checkedBoxes = tokenFiltersContainer.querySelectorAll('.token-checkbox:checked');
         activeFilters.classes = Array.from(checkedBoxes).map(cb => cb.value);
@@ -165,11 +209,11 @@ function bindEventListeners() {
         const currentTheme = document.documentElement.getAttribute('data-theme');
         const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', nextTheme);
-        
+
         const darkIcon = themeToggleBtn.querySelector('.mode-icon-dark');
         const lightIcon = themeToggleBtn.querySelector('.mode-icon-light');
-        
-        if(nextTheme === 'dark') {
+
+        if (nextTheme === 'dark') {
             darkIcon.style.display = 'inline';
             lightIcon.style.display = 'none';
         } else {
@@ -183,10 +227,10 @@ function applyPipelineProcessing() {
     const filteredLogs = networkDataset.filter(log => {
         return log.confidence >= activeFilters.minConfidence && activeFilters.classes.includes(log.attack_type);
     });
-    
+
     totalMetricEl.textContent = filteredLogs.length;
     threatsMetricEl.textContent = filteredLogs.filter(l => l.is_attack).length;
-    
+
     renderActivityFeed(filteredLogs);
 }
 
@@ -195,7 +239,7 @@ function renderActivityFeed(logs) {
         alertFeedContainer.innerHTML = `<div style="font-size: 0.95rem; color: var(--text-muted); text-align: center; padding: 2rem;">No matching session logs.</div>`;
         return;
     }
-    
+
     alertFeedContainer.innerHTML = logs.map(log => {
         const riskClass = log.is_attack ? 'malicious' : 'safe';
         const isActive = log.id === selectedLogId ? 'active' : '';
@@ -211,9 +255,9 @@ function renderActivityFeed(logs) {
     }).join('');
 }
 
-window.handleLogSelection = function(id) {
+window.handleLogSelection = function (id) {
     selectedLogId = id;
-    applyPipelineProcessing(); 
+    applyPipelineProcessing();
     syncDetailedAnalysis(id);
 };
 
@@ -225,7 +269,7 @@ function syncDetailedAnalysis(id) {
     nodeClass.querySelector('.val').style.color = targetData.is_attack ? 'var(--color-malicious)' : 'var(--color-safe)';
     nodeClass.className = `stat-node ${targetData.is_attack ? 'danger' : 'secure'}`;
     nodeConf.querySelector('.val').textContent = `${targetData.confidence.toFixed(1)}%`;
-    
+
     const topFeatureNode = targetData.shap_values.reduce((prev, current) => (Math.abs(current.value) > Math.abs(prev.value)) ? current : prev);
     nodeTopFeat.querySelector('.val').textContent = topFeatureNode.feature;
 
@@ -271,7 +315,7 @@ function renderForcePlot(data) {
     let expectedValuePointer = 0.5;
 
     data.shap_values.forEach(shap => {
-        const segmentWidth = Math.abs(shap.value) * 40; 
+        const segmentWidth = Math.abs(shap.value) * 40;
         const segmentEl = document.createElement('div');
         segmentEl.className = `force-segment ${shap.impact === 'positive' ? 'push-pos' : 'push-neg'}`;
         segmentEl.style.width = `${segmentWidth}%`;
@@ -289,29 +333,27 @@ function renderForcePlot(data) {
 window.addEventListener('DOMContentLoaded', initApp);
 
 
-
-
 function startSOCClock() {
-        const clockElement = document.getElementById('soc-clock');
-        if (!clockElement) return;
+    const clockElement = document.getElementById('soc-clock');
+    if (!clockElement) return;
 
-        function updateTime() {
-            const now = new Date();
-            
-            // This strictly forces the time to Indian Standard Time (IST)
-            const timeString = now.toLocaleTimeString('en-US', { 
-                timeZone: 'Asia/Kolkata', 
-                hour12: false, 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit' 
-            });
-            
-            clockElement.textContent = `SYS.TIME: ${timeString} IST`;
-        }
+    function updateTime() {
+        const now = new Date();
 
-        updateTime(); // Run immediately
-        setInterval(updateTime, 1000); // Update every second
+        // This strictly forces the time to Indian Standard Time (IST)
+        const timeString = now.toLocaleTimeString('en-US', {
+            timeZone: 'Asia/Kolkata',
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+
+        clockElement.textContent = `SYS.TIME: ${timeString} IST`;
     }
 
-    document.addEventListener('DOMContentLoaded', startSOCClock);
+    updateTime(); // Run immediately
+    setInterval(updateTime, 1000); // Update every second
+}
+
+document.addEventListener('DOMContentLoaded', startSOCClock);
