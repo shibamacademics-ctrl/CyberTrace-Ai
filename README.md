@@ -92,20 +92,33 @@ cybertrace_ai/
 ├── explore.py                     ← Level 2: data exploration
 ├── preprocess.py                  ← Level 3: data cleaning
 ├── features.py                    ← Level 4: feature engineering
-├── train_model.py                 ← Level 5: model training
+├── train.py                 ← Level 5: model training
 ├── evaluate.py                    ← Level 6: model evaluation
 ├── explainer.py                   ← SHAP wrapper (Person 2)
 ├── certificate_generator.py       ← Certificate text logic (Person 2)
 ├── database.py                    ← SQLite models (optional)
 │
-├── app.py                         ← Streamlit dashboard entry point
-├── index.html                     ← Standalone HTML/CSS/JS dashboard
+├── xai_ids_frontend/
+│   ├── index.html                 ← Standalone HTML/CSS/JS dashboard
+│   ├── app.js
+│   └── styles.css
 │
 ├── requirements.txt
 └── README.md
 ```
 
 ---
+
+> ⚠️ **Note on `data/cicids2017.csv`, `data/cleaned.csv`, `model/x_test.csv`, `model/y_test.csv`:**
+> these are tracked with Git LFS. If you downloaded the repo as a ZIP from
+> GitHub (instead of `git clone`-ing it), you'll get tiny LFS *pointer*
+> files (~130 bytes, starting with `version https://git-lfs...`) instead of
+> the real data. This does **not** stop the API or dashboard from running —
+> they only need `model/model.pkl`, `model/scaler.pkl`, `model/le_encoder.pkl`,
+> and `model/feature_names.json`, which are committed as real binary files.
+> You only need the real CSVs if you intend to re-run `train.py` /
+> `evaluate.py` yourself — see the [Dataset](#-dataset) section below to get
+> real data.
 
 ## 📦 Dataset
 
@@ -245,15 +258,19 @@ Alert Feed   SHAP Charts   Certificate Card
 python explore.py
 python preprocess.py
 python features.py
-python train_model.py
+python train.py
 python evaluate.py
 ```
 
-### 2. Start the API (Person 2)
+### 2. Start the API
+
+Run this from the **project root** (not from inside `api/`) — `api/main.py`
+loads `model/model.pkl` etc. using paths relative to the working directory,
+and it imports sibling modules (`explainer.py`, `certificate_generator.py`,
+`database.py`) that only resolve correctly from the root:
 
 ```bash
-cd api
-uvicorn main:app --reload --port 8000
+uvicorn api.main:app --reload --port 8000
 ```
 
 Verify it's running:
@@ -263,15 +280,12 @@ curl http://localhost:8000/health
 
 ### 3. Launch the dashboard
 
-**Option A — Streamlit**
-```bash
-streamlit run app.py
-```
-Open `http://localhost:8501`
+The frontend is the standalone HTML/CSS/JS app in `xai_ids_frontend/`
+(there is no Streamlit app in this repo despite earlier drafts of this
+README mentioning one):
 
-**Option B — Standalone HTML/CSS/JS**
 ```bash
-# Just open the file directly, or serve it locally:
+cd xai_ids_frontend
 python -m http.server 8080
 ```
 Open `http://localhost:8080/index.html`
