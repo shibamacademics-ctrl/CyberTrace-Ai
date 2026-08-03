@@ -58,8 +58,7 @@ Traditional Intrusion Detection Systems (IDS) tell you *that* something bad happ
 | Explainability | SHAP |
 | Backend API | FastAPI, Uvicorn, Pydantic |
 | Database | SQLite + SQLAlchemy |
-| Frontend (Option A) | Streamlit |
-| Frontend (Option B) | HTML, CSS, JavaScript (Chart.js) |
+| Frontend | HTML, CSS, JavaScript (Chart.js) |
 
 ---
 
