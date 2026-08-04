@@ -6,10 +6,12 @@
 const BACKEND_URL = "http://localhost:8000";
 
 // --- 1. INITIALIZE EMPTY STATE ---
+// These 6 classes match your model's actual le_encoder.pkl classes,
+// confirmed via find_attack.py: BENIGN, Bot, DDoS, Infiltration, PortScan, Web Attack
 let networkDataset = []; // Starts empty!
-let activeFilters = { minConfidence: 50, classes: ["DDoS", "PortScan", "Brute Force", "Web Attack", "Bot", "BENIGN"] };
+let activeFilters = { minConfidence: 50, classes: ["BENIGN", "Bot", "DDoS", "Infiltration", "PortScan", "Web Attack"] };
 let selectedLogId = null;
-const uniqueClasses = ["DDoS", "PortScan", "Brute Force", "Web Attack", "Bot", "BENIGN"];
+const uniqueClasses = ["BENIGN", "Bot", "DDoS", "Infiltration", "PortScan", "Web Attack"];
 
 // --- DOM ELEMENTS ---
 const alertFeedContainer = document.getElementById('alert-feed');
