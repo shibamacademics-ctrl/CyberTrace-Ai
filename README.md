@@ -14,6 +14,7 @@ An intrusion detection system that doesn't just detect network attacks — it **
 - [Project Structure](#project-structure)
 - [Dataset](#dataset)
 - [Installation](#installation)
+- [CICFlowMeter Setup (Live Packet Capture)](#cicflowmeter-setup-live-packet-capture)
 - [Team Roles](#team-roles)
 - [How It Works](#how-it-works)
 - [Running the Project](#running-the-project)
@@ -58,7 +59,8 @@ Traditional Intrusion Detection Systems (IDS) tell you *that* something bad happ
 | Explainability | SHAP |
 | Backend API | FastAPI, Uvicorn, Pydantic |
 | Database | SQLite + SQLAlchemy |
-| Frontend | HTML, CSS, JavaScript (Chart.js) |
+| Frontend (Option A) | Streamlit |
+| Frontend (Option B) | HTML, CSS, JavaScript (Chart.js) |
 
 ---
 
@@ -67,17 +69,7 @@ Traditional Intrusion Detection Systems (IDS) tell you *that* something bad happ
 ```
 cybertrace_ai/
 │
-├── data/
-│   ├── cicids2017_full/          ← raw dataset files (downloaded, see below)
-│   └── cleaned.csv                ← output of preprocess.py
-│
-├── model/
-│   ├── model.pkl                  ← trained Random Forest classifier
-│   ├── scaler.pkl                 ← fitted StandardScaler
-│   ├── label_encoder.pkl          ← fitted LabelEncoder
-│   ├── feature_names.json         ← list of selected features
-│   ├── X_test.csv / y_test.csv    ← held-out test set
-│   └── confusion_matrix.png       ← evaluation output
+├── __pycache__/                   ← Python bytecode cache
 │
 ├── api/
 │   └── main.py                    ← FastAPI server (Person 2)
@@ -88,20 +80,33 @@ cybertrace_ai/
 │   ├── certificate_card.py        ← Certificate UI (Person 3b)
 │   └── alert_feed.py              ← Dashboard alert list (Person 4)
 │
-├── explore.py                     ← Level 2: data exploration
-├── preprocess.py                  ← Level 3: data cleaning
-├── features.py                    ← Level 4: feature engineering
-├── train.py                 ← Level 5: model training
-├── evaluate.py                    ← Level 6: model evaluation
-├── explainer.py                   ← SHAP wrapper (Person 2)
-├── certificate_generator.py       ← Certificate text logic (Person 2)
-├── database.py                    ← SQLite models (optional)
+├── data/
+│   ├── cicids2017_full/           ← raw dataset files (downloaded, see below)
+│   └── cleaned.csv                ← output of preprocess.py
+│
+├── model/
+│   ├── model.pkl                  ← trained Random Forest classifier
+│   ├── scaler.pkl                 ← fitted StandardScaler
+│   ├── label_encoder.pkl          ← fitted LabelEncoder
+│   ├── feature_names.json         ← list of selected features
+│   ├── X_test.csv / y_test.csv    ← held-out test set
+│   └── confusion_matrix.png       ← evaluation output
 │
 ├── xai_ids_frontend/
 │   ├── index.html                 ← Standalone HTML/CSS/JS dashboard
 │   ├── app.js
 │   └── styles.css
 │
+├── .gitignore
+├── alerts                         ← SQLite database file (alert history)
+├── certificate_generator.py       ← Certificate text logic (Person 2)
+├── database.py                    ← SQLite models (optional)
+├── evaluate.py                    ← Level 6: model evaluation
+├── explainer.py                   ← SHAP wrapper (Person 2)
+├── explore.py                     ← Level 2: data exploration
+├── features.py                    ← Level 4: feature engineering
+├── preprocess.py                  ← Level 3: data cleaning
+├── train.py                       ← Level 5: model training
 ├── requirements.txt
 └── README.md
 ```
@@ -113,7 +118,7 @@ cybertrace_ai/
 > GitHub (instead of `git clone`-ing it), you'll get tiny LFS *pointer*
 > files (~130 bytes, starting with `version https://git-lfs...`) instead of
 > the real data. This does **not** stop the API or dashboard from running —
-> they only need `model/model.pkl`, `model/scaler.pkl`, `model/le_encoder.pkl`,
+> they only need `model/model.pkl`, `model/scaler.pkl`, `model/label_encoder.pkl`,
 > and `model/feature_names.json`, which are committed as real binary files.
 > You only need the real CSVs if you intend to re-run `train.py` /
 > `evaluate.py` yourself — see the [Dataset](#-dataset) section below to get
@@ -206,6 +211,91 @@ sqlalchemy
 streamlit
 requests
 ```
+
+---
+
+## 📡 CICFlowMeter Setup (Live Packet Capture)
+
+To feed **real, live network traffic** into the model instead of only static CSV samples, CyberTrace AI uses **CICFlowMeter** — the same tool used to generate the CICIDS2017 dataset — to convert raw captured packets into labeled flow-based features (Flow Duration, Total Fwd Packets, Flow Packets/s, etc.) that match what `model.pkl` expects.
+
+### Prerequisites
+
+- **Java JDK 8+** (CICFlowMeter is a Java application)
+- **libpcap / Npcap** for packet capture
+  - Linux: `sudo apt install libpcap-dev`
+  - macOS: `brew install libpcap`
+  - Windows: install [Npcap](https://npcap.com/) (check "WinPcap API-compatible mode" during install)
+- Root/administrator privileges (required to capture live traffic on most OSes)
+
+### Installing CICFlowMeter
+
+**Option A — Clone from GitHub (recommended)**
+
+```bash
+git clone https://github.com/ahlashkari/CICFlowMeter.git
+cd CICFlowMeter
+```
+
+Build with Gradle (bundled wrapper, no separate Gradle install needed):
+
+```bash
+# Linux / macOS
+./gradlew build
+
+# Windows
+gradlew.bat build
+```
+
+**Option B — Prebuilt release**
+
+1. Download the latest packaged release from the [CICFlowMeter releases page](https://github.com/ahlashkari/CICFlowMeter/releases)
+2. Extract the archive
+3. On Linux/macOS, make the launcher executable:
+   ```bash
+   chmod +x CICFlowMeter
+   ```
+
+### Running CICFlowMeter
+
+**GUI mode** (good for testing on a `.pcap` file):
+
+```bash
+cd CICFlowMeter
+./gradlew run
+```
+
+Then in the GUI: **Load pcap file(s)** → select input folder → select output folder → the tool writes a `*_Flow.csv` file with all flow features.
+
+**Command-line mode** (for offline `.pcap` → CSV conversion):
+
+```bash
+cd CICFlowMeter/bin
+./cfm <input_pcap_folder_or_file> <output_csv_folder>
+```
+
+**Live capture mode** (captures directly from a network interface):
+
+```bash
+# List available interfaces first
+ip link show          # Linux
+ipconfig               # Windows
+
+# Then run CICFlowMeter in live mode, selecting the interface in the GUI,
+# or via CLI depending on your build (see tool's -h/--help output)
+sudo ./cfm -i <interface_name> <output_csv_folder>
+```
+
+> ⚠️ Live capture requires elevated privileges (`sudo` on Linux/macOS, "Run as Administrator" on Windows) since it opens a raw socket on the network interface.
+
+### Connecting Captured Flows to CyberTrace AI
+
+1. Run CICFlowMeter (GUI, CLI, or live mode) to produce a `*_Flow.csv` file containing the same feature columns used in `model/feature_names.json`.
+2. Feed each row into the API's `/predict` endpoint, either:
+   - Manually, by converting a CSV row to the JSON `features` payload shown in [API Reference](#-api-reference), or
+   - With a small script that reads the CSV and POSTs each row to `http://localhost:8000/predict` in sequence, simulating a live alert feed.
+3. Alerts generated this way will appear in the dashboard's live alert feed and be persisted to the `alerts` database if enabled.
+
+> 💡 **Tip:** For a true real-time pipeline (capture → flow conversion → prediction, continuously), run CICFlowMeter in live mode with a short flush interval, watch the output folder for new CSV rows, and stream each new row to `/predict` as it appears. This "Live packet capture integration" is tracked in the [Roadmap](#-roadmap) as a future enhancement.
 
 ---
 
