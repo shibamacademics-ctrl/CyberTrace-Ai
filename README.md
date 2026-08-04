@@ -58,9 +58,8 @@ Traditional Intrusion Detection Systems (IDS) tell you *that* something bad happ
 | Machine Learning | scikit-learn (Random Forest) |
 | Explainability | SHAP |
 | Backend API | FastAPI, Uvicorn, Pydantic |
-| Database | SQLite + SQLAlchemy |
-| Frontend (Option A) | Streamlit |
-| Frontend (Option B) | HTML, CSS, JavaScript (Chart.js) |
+| Database | SQLite |
+| Frontend | HTML, CSS, JavaScript (Chart.js) |
 
 ---
 
@@ -307,7 +306,7 @@ sudo ./cfm -i <interface_name> <output_csv_folder>
 | **2** | SHAP + API Engineer | Running FastAPI `/predict` endpoint with SHAP explanations |
 | **3a** | SHAP Visualization Developer | Bar chart + force plot components |
 | **3b** | Certificate Text Developer | Human-readable Reasoning Certificates |
-| **4** | Dashboard Developer | Full frontend (Streamlit or HTML/CSS/JS) |
+| **4** | Dashboard Developer | Full frontend (HTML/CSS/JS) |
 
 See `COMPLETE_PROJECT_SYLLABUS.md` for the full week-by-week breakdown per role.
 
@@ -456,4 +455,4 @@ This project is for educational purposes, built using the CICIDS2017 dataset (Ca
 
 ---
 
-**Built with:** scikit-learn · SHAP · FastAPI · Streamlit · Chart.js
+**Built with:** scikit-learn · SHAP · FastAPI · Chart.js
