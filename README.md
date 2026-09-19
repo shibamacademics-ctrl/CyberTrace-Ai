@@ -18,6 +18,7 @@ An intrusion detection system that doesn't just detect network attacks — it **
 - [Team Roles](#team-roles)
 - [How It Works](#how-it-works)
 - [Running the Project](#running-the-project)
+- [Cloud Deployment (Vercel & Netlify)](#-cloud-deployment)
 - [API Reference](#api-reference)
 - [Screenshots](#screenshots)
 - [Roadmap](#roadmap)
@@ -424,6 +425,67 @@ Returns recent alerts from the database (if enabled).
 
 ---
 
+## ☁️ Cloud Deployment
+
+CyberTrace AI is configured for serverless cloud deployment on both **Vercel** and **Netlify**.
+
+### 1. 🚀 Deploying to Vercel (Full Stack: FastAPI + SHAP AI + Frontend)
+
+Vercel hosts both the **FastAPI backend** (with live Random Forest inference + SHAP explanations) and the **interactive frontend dashboard** in a single unified deployment.
+
+#### Architecture & Optimizations:
+- **`vercel.json`**: Rewrites `/api/*`, `/predict`, `/health`, `/features`, and `/alerts` to the Python serverless function at `api/index.py`, while `/` serves `xai_ids_frontend/`.
+- **Bundle Size Optimization**:
+  - `model.pkl` is compressed using Joblib (shrunk from 44.5 MB to 10.5 MB).
+  - Heavy non-runtime dependencies (`pandas`, `sqlalchemy`, `streamlit`, `matplotlib`) were pruned, dropping the serverless bundle size to **~330 MB** (well under Vercel's 500 MB limit).
+  - SQLite database automatically falls back to `/tmp/alerts.db` in serverless environments.
+  - The frontend dynamically resolves `BACKEND_URL` to same-origin in production.
+
+#### Deploy via Vercel Web Dashboard (1-Click):
+1. Go to [https://vercel.com/new](https://vercel.com/new).
+2. Import **`CyberTrace-Ai`**.
+3. Leave the root directory as `./` and framework preset as default.
+4. Click **Deploy**.
+
+#### Deploy via Vercel CLI:
+```bash
+npx vercel login
+npx vercel --prod
+```
+
+> 💡 **Tip:** In Vercel project settings under **Environment Variables**, you can add `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` for up to 5 GB of function capacity.
+
+---
+
+### 2. ⚡ Deploying to Netlify (Frontend Dashboard)
+
+Netlify hosts the static frontend dashboard (`xai_ids_frontend/`) on a global high-performance CDN.
+
+- **Live Deployment:** [https://gleeful-llama-005a89.netlify.app](https://gleeful-llama-005a89.netlify.app) *(Password: `My-Drop-Site`)*
+- **Configuration:** Managed via `netlify.toml`:
+  ```toml
+  [build]
+    publish = "xai_ids_frontend"
+
+  [[redirects]]
+    from = "/*"
+    to = "/index.html"
+    status = 200
+  ```
+
+#### Deploy via Netlify Dashboard:
+1. Log into [app.netlify.com](https://app.netlify.com).
+2. Click **Add new site** → **Import an existing project** → select your GitHub repository `CyberTrace-Ai`.
+3. Netlify automatically detects `netlify.toml` and sets the publish directory to `xai_ids_frontend`.
+4. Click **Deploy CyberTrace-Ai**.
+
+#### Deploy via Netlify CLI:
+```bash
+npx netlify deploy --prod --dir=xai_ids_frontend
+```
+
+---
+
 ## 🗺️ Roadmap
 
 - [x] Data preprocessing pipeline
@@ -433,8 +495,8 @@ Returns recent alerts from the database (if enabled).
 - [x] FastAPI backend
 - [x] Streamlit dashboard prototype
 - [x] Standalone HTML/CSS/JS dashboard
+- [x] Deploy API + dashboard to cloud (Vercel & Netlify)
 - [ ] Live packet capture integration (real-time traffic)
-- [ ] Deploy API + dashboard to cloud
 - [ ] Add authentication for analyst logins
 - [ ] LLM-enhanced certificate generation (optional)
 
