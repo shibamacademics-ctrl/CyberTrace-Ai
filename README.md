@@ -467,7 +467,7 @@ npx netlify deploy --prod --dir=xai_ids_frontend
 - [x] FastAPI backend
 - [x] Streamlit dashboard prototype
 - [x] Standalone HTML/CSS/JS dashboard
-- [x] Deploy API + dashboard to cloud (Vercel & Netlify)
+- [x] Deploy API + dashboard to cloud (Netlify)
 - [ ] Live packet capture integration (real-time traffic)
 - [ ] Add authentication for analyst logins
 - [ ] LLM-enhanced certificate generation (optional)
