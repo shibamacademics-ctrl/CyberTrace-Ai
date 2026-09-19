@@ -1,9 +1,12 @@
 // ============================================================
 // BACKEND CONNECTION
-// Change this if your FastAPI server runs somewhere other than
-// localhost:8000 (e.g. a teammate's machine's IP address).
+// Automatically adapts:
+// - Standalone local frontend server (localhost:8080) -> localhost:8000
+// - Production deployment (e.g. Vercel) -> same origin ("")
 // ============================================================
-const BACKEND_URL = "http://localhost:8000";
+const BACKEND_URL = (window.location.hostname === "localhost" && window.location.port === "8080")
+    ? "http://localhost:8000"
+    : "";
 
 // --- 1. INITIALIZE EMPTY STATE ---
 // These 6 classes match your model's actual le_encoder.pkl classes,

@@ -15,6 +15,8 @@ frontend's live alert feed) can show recent history.
 
 import json
 import os
+import shutil
+import tempfile
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -29,7 +31,18 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "alerts.db")
+# On Vercel / serverless lambda environments, only /tmp is writable.
+if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    DB_PATH = os.path.join(tempfile.gettempdir(), "alerts.db")
+    source_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "alerts.db")
+    if os.path.exists(source_db) and not os.path.exists(DB_PATH):
+        try:
+            shutil.copyfile(source_db, DB_PATH)
+        except Exception:
+            pass
+else:
+    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "alerts.db")
+
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
@@ -67,40 +80,55 @@ class Alert(Base):
 
 def init_db() -> None:
     """Create the alerts table if it doesn't already exist."""
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"Database init warning: {e}")
 
 
 def save_alert(response: dict) -> dict:
     """Persist a /predict response and return the stored record."""
-    session = SessionLocal()
     try:
-        alert = Alert(
-            attack_type=response["attack_type"],
-            confidence=response["confidence"],
-            is_attack=response["is_attack"],
-            summary=response["summary"],
-            context=response["context"],
-            reasons=json.dumps(response["reasons"]),
-            top_shap_values=json.dumps(response["top_shap_values"]),
-        )
-        session.add(alert)
-        session.commit()
-        session.refresh(alert)
-        return alert.to_dict()
-    finally:
-        session.close()
+        session = SessionLocal()
+        try:
+            alert = Alert(
+                attack_type=response["attack_type"],
+                confidence=response["confidence"],
+                is_attack=response["is_attack"],
+                summary=response["summary"],
+                context=response["context"],
+                reasons=json.dumps(response["reasons"]),
+                top_shap_values=json.dumps(response["top_shap_values"]),
+            )
+            session.add(alert)
+            session.commit()
+            session.refresh(alert)
+            return alert.to_dict()
+        finally:
+            session.close()
+    except Exception as e:
+        print(f"Warning: Failed to save alert: {e}")
+        return {
+            "id": None,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            **response,
+        }
 
 
 def get_alerts(limit: int = 50) -> list:
     """Return the most recent alerts, newest first."""
-    session = SessionLocal()
     try:
-        rows = (
-            session.query(Alert)
-            .order_by(Alert.id.desc())
-            .limit(limit)
-            .all()
-        )
-        return [row.to_dict() for row in rows]
-    finally:
-        session.close()
+        session = SessionLocal()
+        try:
+            rows = (
+                session.query(Alert)
+                .order_by(Alert.id.desc())
+                .limit(limit)
+                .all()
+            )
+            return [row.to_dict() for row in rows]
+        finally:
+            session.close()
+    except Exception as e:
+        print(f"Warning: Failed to get alerts: {e}")
+        return []

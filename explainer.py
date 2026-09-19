@@ -4,15 +4,17 @@ SHAP wrapper around the trained Random Forest classifier.
 """
 
 import json
+import os
 import joblib
 import numpy as np
 import pandas as pd
 import shap
 
-MODEL_PATH = "model/model.pkl"
-SCALER_PATH = "model/scaler.pkl"
-LABEL_ENCODER_PATH = "model/le_encoder.pkl"
-FEATURE_NAMES_PATH = "model/feature_names.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "model", "model.pkl")
+SCALER_PATH = os.path.join(BASE_DIR, "model", "scaler.pkl")
+LABEL_ENCODER_PATH = os.path.join(BASE_DIR, "model", "le_encoder.pkl")
+FEATURE_NAMES_PATH = os.path.join(BASE_DIR, "model", "feature_names.json")
 
 
 class IDSExplainer:

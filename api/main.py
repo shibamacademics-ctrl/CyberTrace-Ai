@@ -41,16 +41,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Loaded ONCE at startup. This is the single source of truth for
+# Loaded on demand or at startup. This is the single source of truth for
 # model / scaler / label_encoder / feature_names across every request.
 explainer: Optional[IDSExplainer] = None
 
 
+def get_explainer() -> IDSExplainer:
+    global explainer
+    if explainer is None:
+        explainer = IDSExplainer()
+        try:
+            database.init_db()
+        except Exception as e:
+            print(f"Warning: Database init failed: {e}")
+    return explainer
+
+
 @app.on_event("startup")
 def startup_event():
-    global explainer
-    explainer = IDSExplainer()
-    database.init_db()
+    get_explainer()
 
 
 class PredictRequest(BaseModel):
@@ -79,28 +88,38 @@ class PredictResponse(BaseModel):
 
 
 @app.get("/health")
+@app.get("/api/health")
 def health():
+    try:
+        exp = get_explainer()
+        loaded = exp is not None
+    except Exception:
+        loaded = False
     return {
-        "status": "ok" if explainer is not None else "model not loaded",
-        "model_loaded": explainer is not None,
+        "status": "ok" if loaded else "model not loaded",
+        "model_loaded": loaded,
     }
 
 
 @app.get("/features")
+@app.get("/api/features")
 def get_features():
-    if explainer is None:
+    exp = get_explainer()
+    if exp is None:
         raise HTTPException(status_code=503, detail="Model not loaded yet")
-    return {"feature_names": explainer.feature_names}
+    return {"feature_names": exp.feature_names}
 
 
 @app.post("/predict", response_model=PredictResponse)
+@app.post("/api/predict", response_model=PredictResponse)
 def predict(request: PredictRequest):
-    if explainer is None:
+    exp = get_explainer()
+    if exp is None:
         raise HTTPException(status_code=503, detail="Model not loaded yet")
 
     try:
-        result = explainer.predict(request.features)
-        top_shap_values = explainer.explain(
+        result = exp.predict(request.features)
+        top_shap_values = exp.explain(
             result["X_scaled"], result["pred_encoded"], top_n=5
         )
 
@@ -120,7 +139,11 @@ def predict(request: PredictRequest):
             "top_shap_values": top_shap_values,
         }
 
-        database.save_alert(response)
+        try:
+            database.save_alert(response)
+        except Exception as db_err:
+            print(f"Warning: Database save failed: {db_err}")
+
         return response
 
     except KeyError as e:
@@ -130,5 +153,6 @@ def predict(request: PredictRequest):
 
 
 @app.get("/alerts")
+@app.get("/api/alerts")
 def alerts(limit: int = 50):
     return database.get_alerts(limit=limit)
