@@ -1,0 +1,7 @@
+[build]
+  publish = "xai_ids_frontend"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
