@@ -12,7 +12,8 @@
   "functions": {
     "api/index.py": {
       "memory": 1024,
-      "maxDuration": 60
+      "maxDuration": 60,
+      "excludeFiles": "{alerts.db,data/**,xai_ids_frontend/**,components/**,README.md,train.py,evaluate.py,explore.py,preprocess.py,features.py,model/confusion_matrix.png,model/x_test.csv,model/y_test.csv}"
     }
   }
 }

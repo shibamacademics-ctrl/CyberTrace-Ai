@@ -5,10 +5,13 @@ SHAP wrapper around the trained Random Forest classifier.
 
 import json
 import os
+import warnings
 import joblib
 import numpy as np
-import pandas as pd
 import shap
+
+# Suppress feature name UserWarning from scikit-learn when passing raw arrays
+warnings.filterwarnings("ignore", category=UserWarning)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model", "model.pkl")
@@ -28,21 +31,16 @@ class IDSExplainer:
 
         self.shap_explainer = shap.TreeExplainer(self.model)
 
-    def _to_frame(self, features: dict) -> pd.DataFrame:
-        row = {name: features.get(name, 0.0) for name in self.feature_names}
-        return pd.DataFrame([row], columns=self.feature_names)
+    def _to_array(self, features: dict) -> np.ndarray:
+        row = [float(features.get(name, 0.0)) for name in self.feature_names]
+        return np.array([row], dtype=np.float32)
 
     def predict(self, features: dict) -> dict:
-        X = self._to_frame(features)
+        X = self._to_array(features)
         X_scaled = self.scaler.transform(X)
-        # FIX: scaler.transform() returns a plain ndarray, losing the column
-        # names the RandomForest was fitted with (caused a UserWarning on
-        # every prediction). Wrapping it back into a DataFrame keeps things
-        # consistent for both model.predict() and the SHAP explainer below.
-        X_scaled = pd.DataFrame(X_scaled, columns=self.feature_names)
 
-        pred_encoded = self.model.predict(X_scaled)[0]
-        pred_label = self.label_encoder.inverse_transform([pred_encoded])[0]
+        pred_encoded = int(self.model.predict(X_scaled)[0])
+        pred_label = str(self.label_encoder.inverse_transform([pred_encoded])[0])
 
         proba = self.model.predict_proba(X_scaled)[0]
         confidence = float(np.max(proba) * 100)

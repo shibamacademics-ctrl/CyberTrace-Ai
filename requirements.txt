@@ -1,4 +1,3 @@
-pandas
 numpy
 scikit-learn>=1.5.0
 joblib
@@ -6,4 +5,3 @@ shap
 fastapi
 uvicorn
 pydantic
-sqlalchemy
